@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Portfolio Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Slate & Amber) -->
+    <!-- Application Structure Plan: A dashboard structure was chosen to provide a comprehensive overview at a glance while allowing for detailed exploration. The layout consists of three main parts: 1) Key Performance Indicator (KPI) cards at the top for immediate high-level insights (total loaned, active loans). 2) A central grid for visual analysis, containing charts that break down data by person and status. 3) An interactive data table for granular inspection. This user flow—from summary to visual analysis to detailed data—is an intuitive and standard practice for data-driven applications, making it highly usable for managing a portfolio. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Aggregate loan metrics -> Goal: Inform -> Viz: KPI Cards -> Interaction: Updates with filters -> Justification: Provides a quick, digestible summary of the most important figures.
+        - Report Info: Loan amounts per person -> Goal: Compare -> Viz: Bar Chart (Chart.js) -> Interaction: Hover tooltips for exact values, updates with filters -> Justification: A bar chart is ideal for comparing discrete amounts across different categories (people).
+        - Report Info: Loan status breakdown -> Goal: Inform (Proportions) -> Viz: Donut Chart (Chart.js) -> Interaction: Hover tooltips for percentages/counts -> Justification: Effectively shows the proportional distribution of loan statuses within the entire portfolio.
+        - Report Info: Full loan list -> Goal: Organize/Explore -> Viz: Interactive HTML Table -> Interaction: Filterable by status via buttons -> Justification: A table is the clearest way to present detailed, row-level information, and filtering is a crucial interaction for data exploration.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Loan Portfolio Dashboard</h1>
+            <p class="text-slate-600 mt-2">An interactive overview of your personal loan data.</p>
+        </header>
+
+        <main>
+            <!-- KPI Cards Section -->
+            <section id="kpi-section" class="mb-8">
+                 <div class="text-left mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-900">Portfolio Summary</h2>
+                    <p class="text-slate-500 mt-1">This section provides a high-level summary of your entire loan portfolio. These key performance indicators (KPIs) update dynamically as you apply filters to the loan data below, giving you an immediate snapshot of the filtered dataset.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col justify-between">
+                        <h3 class="text-sm font-medium text-slate-500">Total Loaned Amount</h3>
+                        <p id="total-amount" class="text-3xl font-semibold text-slate-900 mt-2">₹0.00</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col justify-between">
+                        <h3 class="text-sm font-medium text-slate-500">Active Loans</h3>
+                        <p id="active-loans" class="text-3xl font-semibold text-slate-900 mt-2">0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col justify-between">
+                        <h3 class="text-sm font-medium text-slate-500">Average Loan Amount</h3>
+                        <p id="avg-amount" class="text-3xl font-semibold text-slate-900 mt-2">₹0.00</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col justify-between">
+                        <h3 class="text-sm font-medium text-slate-500">Avg. Loan Duration</h3>
+                        <p id="avg-duration" class="text-3xl font-semibold text-slate-900 mt-2">0 <span class="text-base font-normal">days</span></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+             <section id="charts-section" class="mb-8">
+                <div class="text-left mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-900">Visual Analysis</h2>
+                    <p class="text-slate-500 mt-1">These charts offer a visual breakdown of your loan data. Use them to quickly compare loan amounts across individuals and to understand the overall status of your portfolio. Like the summary cards, these charts will update in real-time based on your filtering selections.</p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                        <h3 class="text-lg font-semibold mb-4 text-center">Loan Amount by Person</h3>
+                        <div class="chart-container">
+                            <canvas id="amountByPersonChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                        <h3 class="text-lg font-semibold mb-4 text-center">Loan Status Distribution</h3>
+                        <div class="chart-container">
+                            <canvas id="statusDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Table Section -->
+            <section id="data-table-section">
+                <div class="text-left mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-900">Loan Details</h2>
+                    <p class="text-slate-500 mt-1">Here you can explore the individual records for each loan. Use the buttons to filter the list by status. Selecting a filter will dynamically update the summary cards and charts above to reflect only the data shown in the table.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                    <div class="flex flex-wrap items-center justify-start gap-2 mb-4">
+                        <span class="font-medium mr-2">Filter by Status:</span>
+                        <button class="filter-btn bg-amber-500 text-white px-4 py-2 rounded-md text-sm font-medium" data-status="All">All</button>
+                        <button class="filter-btn bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-md text-sm font-medium" data-status="Given">Given</button>
+                        <button class="filter-btn bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-md text-sm font-medium" data-status="Pending">Pending</button>
+                        <button class="filter-btn bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-md text-sm font-medium" data-status="Collected">Collected</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="w-full text-sm text-left text-slate-500">
+                            <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Person</th>
+                                    <th scope="col" class="px-6 py-3">Amount</th>
+                                    <th scope="col" class="px-6 py-3">Duration (Days)</th>
+                                    <th scope="col" class="px-6 py-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="loan-table-body">
+                                <!-- JS will populate this -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const loanData = [
+            { id: 1, person: 'John Doe', amount: 1250.75, days: 45, status: 'Given' },
+            { id: 2, person: 'Jane Smith', amount: 800.00, days: 90, status: 'Given' },
+            { id: 3, person: 'Peter Jones', amount: 300.50, days: 12, status: 'Given' },
+            { id: 4, person: 'Sam Wilson', amount: 2500.00, days: 180, status: 'Pending' },
+            { id: 5, person: 'Mary Garcia', amount: 550.25, days: 30, status: 'Collected' },
+            { id: 6, person: 'David Chen', amount: 1500.00, days: 60, status: 'Given' },
+            { id: 7, person: 'Emily White', amount: 750.00, days: 20, status: 'Collected' }
+        ];
+
+        let amountByPersonChart, statusDistributionChart;
+
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 2
+            }).format(value);
+        };
+        
+        const updateKPIs = (data) => {
+            const totalAmount = data.reduce((sum, loan) => sum + loan.amount, 0);
+            const activeLoans = data.filter(loan => loan.status === 'Given' || loan.status === 'Pending').length;
+            const avgAmount = data.length > 0 ? totalAmount / data.length : 0;
+            const totalDays = data.reduce((sum, loan) => sum + loan.days, 0);
+            const avgDuration = data.length > 0 ? totalDays / data.length : 0;
+
+            document.getElementById('total-amount').textContent = formatCurrency(totalAmount);
+            document.getElementById('active-loans').textContent = activeLoans;
+            document.getElementById('avg-amount').textContent = formatCurrency(avgAmount);
+            document.getElementById('avg-duration').textContent = `${Math.round(avgDuration)} days`;
+        };
+
+        const renderTable = (data) => {
+            const tableBody = document.getElementById('loan-table-body');
+            tableBody.innerHTML = '';
+            if (data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="text-center py-4">No data available for this filter.</td></tr>`;
+                return;
+            }
+            data.forEach(loan => {
+                const row = document.createElement('tr');
+                row.className = 'bg-white border-b hover:bg-slate-50';
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">${loan.person}</td>
+                    <td class="px-6 py-4">${formatCurrency(loan.amount)}</td>
+                    <td class="px-6 py-4">${loan.days}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                            loan.status === 'Given' ? 'bg-blue-100 text-blue-800' :
+                            loan.status === 'Collected' ? 'bg-green-100 text-green-800' :
+                            'bg-yellow-100 text-yellow-800'
+                        }">${loan.status}</span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        };
+
+        const updateCharts = (data) => {
+            // Amount by Person Chart
+            const personLabels = [...new Set(data.map(loan => loan.person))];
+            const personData = personLabels.map(person => 
+                data.filter(loan => loan.person === person).reduce((sum, loan) => sum + loan.amount, 0)
+            );
+            
+            amountByPersonChart.data.labels = personLabels;
+            amountByPersonChart.data.datasets[0].data = personData;
+            amountByPersonChart.update();
+
+            // Status Distribution Chart
+            const statusCounts = { 'Given': 0, 'Collected': 0, 'Pending': 0 };
+            data.forEach(loan => {
+                statusCounts[loan.status]++;
+            });
+            
+            statusDistributionChart.data.datasets[0].data = Object.values(statusCounts);
+            statusDistributionChart.update();
+        };
+
+        const initializeCharts = () => {
+            const amountCtx = document.getElementById('amountByPersonChart').getContext('2d');
+            amountByPersonChart = new Chart(amountCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Loan Amount (INR)',
+                        data: [],
+                        backgroundColor: 'rgba(245, 158, 11, 0.6)',
+                        borderColor: 'rgba(245, 158, 11, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value / 1000 + 'k';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` Amount: ${formatCurrency(context.raw)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const statusCtx = document.getElementById('statusDistributionChart').getContext('2d');
+            statusDistributionChart = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Given', 'Collected', 'Pending'],
+                    datasets: [{
+                        label: 'Loan Status',
+                        data: [],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.7)',
+                            'rgba(16, 185, 129, 0.7)',
+                            'rgba(245, 158, 11, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.chart.getDatasetMeta(0).total;
+                                    const percentage = total > 0 ? (value / total * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        };
+        
+        const filterData = (status) => {
+            let filteredData = loanData;
+            if (status !== 'All') {
+                filteredData = loanData.filter(loan => loan.status === status);
+            }
+            
+            updateKPIs(filteredData);
+            renderTable(filteredData);
+            updateCharts(filteredData);
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if(btn.dataset.status === status) {
+                    btn.classList.remove('bg-slate-500', 'hover:bg-slate-600');
+                    btn.classList.add('bg-amber-500');
+                } else {
+                    btn.classList.add('bg-slate-500', 'hover:bg-slate-600');
+                    btn.classList.remove('bg-amber-500');
+                }
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+            filterData('All'); 
+
+            document.querySelectorAll('.filter-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    filterData(button.dataset.status);
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
